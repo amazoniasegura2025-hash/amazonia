@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
      <link rel="stylesheet" href="index.css">
+     
     <script>
         tailwind.config = {
             theme: {
@@ -145,99 +146,127 @@ atualizarDashboard();
 setInterval(atualizarDashboard, 60000);
 </script>
 
+
+
   <style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #f0f4f8;
-    color: #222;
-    text-align: center;
-    padding: 20px;
-  }
-  h1 {
-    color: #004aad;
-  }
-  .dashboard {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-  }
-  .card {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
-  }
-  .card h2 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: #555;
-  }
-  .card p {
-    font-size: 2rem;
-    margin: 10px 0 0;
-    color: #111;
-  }
-</style>
-
-<div class="dashboard">
-  <div class="card">
-    <h2>🌡️ Temperatura</h2>
-    <p id="temperature-value">-- °C</p>
-  </div>
-  <div class="card">
-    <h2>💧 Umidade</h2>
-    <p id="humidity-value">-- %</p>
-  </div>
-  <div class="card">
-    <h2>🔥 Risco de Incêndio</h2>
-    <p id="risk-value">--</p>
-  </div>
-  <div class="card">
-    <h2>⚠️ Alertas</h2>
-    <p id="risk-alerts">--</p>
-  </div>
-</div>
-
-<script>
-  async function atualizarDashboard() {
-    try {
-      const res = await fetch("https://api.thingspeak.com/channels/SEU_CHANNEL_ID/feeds.json?results=1");
-      const data = await res.json();
-      const ultima = data.feeds[0];
-
-      // Tratamento de dados nulos
-      const temp = ultima.field1 ? parseFloat(ultima.field1) : null;
-      const umid = ultima.field2 ? parseFloat(ultima.field2) : null;
-
-      document.getElementById('temperature-value').textContent = temp !== null ? temp + ' °C' : "-- °C";
-      document.getElementById('humidity-value').textContent = umid !== null ? umid + ' %' : "-- %";
-
-      // Lógica de risco
-      let risco = 'Baixo';
-      let alertas = 1;
-      if ((temp !== null && temp >= 35) || (umid !== null && umid <= 30)) {
-        risco = 'Alto';
-        alertas = 3;
-      } else if ((temp !== null && temp >= 30) || (umid !== null && umid <= 40)) {
-        risco = 'Médio';
-        alertas = 2;
-      }
-      document.getElementById('risk-value').textContent = risco;
-      document.getElementById('risk-alerts').textContent = `${alertas} alertas ativos`;
-
-    } catch (err) {
-      console.error("Erro ao buscar do ThingSpeak:", err);
+ {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      color: #222;
+      text-align: center;
+      padding: 20px;
     }
-  }
+    h1 {
+      color: #004aad;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    .card h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #555;
+    }
+    .card p {
+      font-size: 2rem;
+      margin: 10px 0 0;
+      color: #111;
+    }
+    .alerta {
+      color: #d32f2f;
+      font-weight: bold;
+      font-size: 1.3rem;
+      margin-top: 20px;
+    }
+    .piscar {
+      animation: piscar 1s infinite;
+    }
+    @keyframes piscar {
+      0%, 50%, 100% { opacity: 1; }
+      25%, 75% { opacity: 0; }
+    }
+  </style>
 
-  setInterval(atualizarDashboard, 10000);
-  atualizarDashboard();
-</script>
+  <div class="dashboard">
+    <div class="card" id="card-temperatura">
+      <h2>🌡️ Temperatura</h2>
+      <p id="temperatura">-- °C</p>
+    </div>
+    <div class="card">
+      <h2>💧 Umidade</h2>
+      <p id="umidade">-- %</p>
+    </div>
+    <div class="card" id="card-mq2">
+      <h2>💨 MQ-2</h2>
+      <p id="mq2">--</p>
+    </div>
+  </div>
+
+  <p id="alerta" class="alerta"></p>
+
+  <script>
+    const url = 'https://api.thingspeak.com/channels/3076111/feeds.json?api_key=TMXUB3W2H3NBHQ2D&results=1';
+
+    const temperaturaEl = document.getElementById('temperatura');
+    const umidadeEl = document.getElementById('umidade');
+    const mq2El = document.getElementById('mq2');
+    const alertaEl = document.getElementById('alerta');
+    const cardTemperatura = document.getElementById('card-temperatura');
+
+    async function atualizarDados() {
+      try {
+        const resposta = await fetch(url);
+        const dados = await resposta.json();
+        const feed = dados.feeds[0];
+
+        // Atualiza os valores
+        const temperatura = feed.field1;
+        const umidade = feed.field2;
+        const mq2 = feed.field3;
+
+        temperaturaEl.textContent = temperatura + ' °C';
+        umidadeEl.textContent = umidade + ' %';
+        mq2El.textContent = mq2 == "0" ? "🚨 Fumaça/Gás detectado!" : "✅ Ambiente limpo";
+
+        // Alerta de temperatura
+        if (parseFloat(temperatura) > 40) {
+          alertaEl.textContent = '⚠️ ALERTA! Temperatura crítica!';
+          alertaEl.classList.add('piscar');
+          cardTemperatura.style.backgroundColor = '#ffe5e5'; // card vermelho claro
+        } else {
+          alertaEl.textContent = '';
+          alertaEl.classList.remove('piscar');
+          cardTemperatura.style.backgroundColor = 'white';
+        }
+
+      } catch (erro) {
+        console.error('Erro ao buscar dados:', erro);
+      }
+    }
+
+    // Atualiza a cada 5 segundos
+    setInterval(atualizarDados, 5000);
+    window.onload = atualizarDados;
+  </script>
 
 
 
 
+ 
 <section id="monitoramento" class="mb-12">
     <h2 class="text-2xl font-bold mb-6 text-amazon-dark">Sensores e Dispositivos</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

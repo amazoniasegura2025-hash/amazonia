@@ -1,4 +1,6 @@
-<style>
+header h1 {
+    color: white;
+}
         .map-container {
             background: linear-gradient(135deg, #1B4332 0%, #2E8B57 100%);
             position: relative;
